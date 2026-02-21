@@ -1,0 +1,59 @@
+# Environment
+.env
+*.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.egg
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Database
+*.db
+*.sqlite
+
+# Docker
+.docker/
+
+# OS
+.DS_Store
+*.swp
+*~
+
+# Alembic — versions are checked in, but don't commit pyc
+backend/alembic/__pycache__/
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Logs
+*.log
+logs/
+
+# Claude Code
+.claude/
+
+# Local vector DB (local-rag MCP)
+lancedb/
+
+# System mount points
+mnt/
+
+# Stray root-level artifacts (real files live in backend/ and scripts/)
+/Dockerfile
+/pyproject.toml
+/init_watchlist.py
+/test_connections.py

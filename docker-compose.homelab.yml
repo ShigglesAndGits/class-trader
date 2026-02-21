@@ -1,0 +1,68 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# CLASS TRADER — Homelab Deployment Compose
+#
+# Uses pre-built images from the local Docker registry rather than building
+# from source. No hot-reload volume mounts — this is the production-mode file.
+#
+# Prerequisites:
+#   1. Copy homelab.env.template → .env and fill in all values
+#   2. If registry is HTTP (not HTTPS), add the registry host to Docker's
+#      insecure-registries in /etc/docker/daemon.json on this machine:
+#        { "insecure-registries": ["<REGISTRY_HOST>:5000"] }
+#      Then: sudo systemctl restart docker
+#   3. docker compose -f docker-compose.homelab.yml pull
+#   4. docker compose -f docker-compose.homelab.yml up -d
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: ${REGISTRY_HOST}:5000/class-trader/backend:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env                  # All API keys + app config come from here
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    # No --reload in homelab (that's dev-only)
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    image: ${REGISTRY_HOST}:5000/class-trader/frontend:latest
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      # BACKEND_PUBLIC_URL must be reachable from the browser — use the
+      # homelab server's LAN IP or hostname, not the Docker-internal name.
+      - VITE_API_URL=${BACKEND_PUBLIC_URL}
+
+volumes:
+  postgres_data:
