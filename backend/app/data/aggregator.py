@@ -14,7 +14,7 @@ Fetch strategy:
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from sqlalchemy import select
@@ -39,6 +39,17 @@ from app.schemas.market import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_date_safe(date_str: Optional[str]) -> Optional[date]:
+    """Parse an ISO date string ('YYYY-MM-DD') without raising on bad input."""
+    if not date_str:
+        return None
+    try:
+        return date.fromisoformat(date_str)
+    except Exception:
+        return None
+
 
 # Alpha Vantage free tier: 5 calls/min. Space calls 13s apart to stay safe.
 _AV_CALL_DELAY = 13.0
@@ -114,10 +125,12 @@ async def build_market_context(db: AsyncSession) -> MarketContext:
     if isinstance(account_result, Exception):
         logger.error(f"Failed to fetch account: {account_result}")
 
-    # ── 4. News + sentiment (Finnhub — rate limited, sequential) ──────────
-    logger.info(f"Fetching news + sentiment for {len(all_tickers)} tickers...")
+    # ── 4. News + sentiment + insider + earnings (Finnhub — rate limited, sequential) ──
+    logger.info(f"Fetching Finnhub data for {len(all_tickers)} tickers...")
     ticker_news: dict[str, list] = {}
     ticker_sentiment: dict[str, dict] = {}
+    ticker_insider: dict[str, Optional[float]] = {}
+    ticker_earnings_date: dict[str, Optional[str]] = {}
 
     for ticker in all_tickers:
         try:
@@ -133,6 +146,20 @@ async def build_market_context(db: AsyncSession) -> MarketContext:
                 ticker_sentiment[ticker] = sentiment
         except Exception as e:
             logger.warning(f"Sentiment fetch failed for {ticker}: {e}")
+
+        try:
+            insider = await asyncio.to_thread(finnhub.get_insider_sentiment, ticker)
+            if insider is not None:
+                ticker_insider[ticker] = insider
+        except Exception as e:
+            logger.warning(f"Insider sentiment fetch failed for {ticker}: {e}")
+
+        try:
+            earnings = await asyncio.to_thread(finnhub.get_earnings_calendar, ticker)
+            if earnings:
+                ticker_earnings_date[ticker] = earnings.get("date")
+        except Exception as e:
+            logger.warning(f"Earnings calendar fetch failed for {ticker}: {e}")
 
         await asyncio.sleep(0.5)  # ~60 calls/min safe zone
 
@@ -239,9 +266,10 @@ async def build_market_context(db: AsyncSession) -> MarketContext:
                 for n in ticker_news.get(ticker, [])[:10]
             ],
             news_sentiment_avg=sentiment_score,
-            insider_sentiment=None,  # Available via Finnhub if needed
+            insider_sentiment=ticker_insider.get(ticker),
             pe_ratio=profile.get("pe_ratio") if profile else None,
             market_cap=profile.get("market_cap") if profile else None,
+            earnings_date=_parse_date_safe(ticker_earnings_date.get(ticker)),
             retail_sentiment=retail_obj,
         )
 
@@ -354,6 +382,8 @@ async def build_partial_market_context(
 
     ticker_news: dict[str, list] = {}
     ticker_sentiment: dict[str, dict] = {}
+    ticker_insider: dict[str, Optional[float]] = {}
+    ticker_earnings_date: dict[str, Optional[str]] = {}
 
     for ticker in all_tickers:
         try:
@@ -369,6 +399,20 @@ async def build_partial_market_context(
                 ticker_sentiment[ticker] = sentiment
         except Exception as e:
             logger.warning(f"Sentiment fetch failed for {ticker}: {e}")
+
+        try:
+            insider = await asyncio.to_thread(finnhub.get_insider_sentiment, ticker)
+            if insider is not None:
+                ticker_insider[ticker] = insider
+        except Exception as e:
+            logger.warning(f"Insider sentiment fetch failed for {ticker}: {e}")
+
+        try:
+            earnings = await asyncio.to_thread(finnhub.get_earnings_calendar, ticker)
+            if earnings:
+                ticker_earnings_date[ticker] = earnings.get("date")
+        except Exception as e:
+            logger.warning(f"Earnings calendar fetch failed for {ticker}: {e}")
 
         await asyncio.sleep(0.5)
 
@@ -400,11 +444,20 @@ async def build_partial_market_context(
             except Exception as e:
                 logger.warning(f"FMP fetch failed for {ticker}: {e}")
 
+    # ── ApeWisdom retail sentiment (no API key required) ──────────────────
+    retail_sentiment: dict[str, dict] = {}
+    try:
+        bot = TendieBot()
+        retail_sentiment = await bot.get_retail_sentiment(watchlist=tickers)
+    except Exception as e:
+        logger.warning(f"ApeWisdom sentiment fetch failed: {e}")
+
     ticker_data: dict[str, TickerContext] = {}
     for ticker in all_tickers:
         ticker_bars_raw = bars.get(ticker, [])
         ticker_quote = quotes.get(ticker, {})
         profile = ticker_profile.get(ticker) or {}
+        retail = retail_sentiment.get(ticker)
 
         current_price = (
             ticker_quote.get("mid_price")
@@ -417,6 +470,13 @@ async def build_partial_market_context(
             if ticker_sentiment.get(ticker)
             else None
         )
+
+        retail_obj = None
+        if retail:
+            try:
+                retail_obj = RetailSentiment(**retail)
+            except Exception:
+                pass
 
         ticker_data[ticker] = TickerContext(
             ticker=ticker,
@@ -437,10 +497,11 @@ async def build_partial_market_context(
                 for n in ticker_news.get(ticker, [])[:10]
             ],
             news_sentiment_avg=sentiment_score,
-            insider_sentiment=None,
+            insider_sentiment=ticker_insider.get(ticker),
             pe_ratio=profile.get("pe_ratio") if profile else None,
             market_cap=profile.get("market_cap") if profile else None,
-            retail_sentiment=None,
+            earnings_date=_parse_date_safe(ticker_earnings_date.get(ticker)),
+            retail_sentiment=retail_obj,
         )
 
     spy_bars_raw = bars.get("SPY", [])
