@@ -44,13 +44,45 @@ _AGENT_DEFAULTS: dict[str, tuple[str | None, int]] = {
     "DEGEN": ("degen.md", 2048),
     "TICKER_EXTRACTOR": (None, 512),
     "DISCOVERY_PM": ("discovery_pm.md", 4096),
+    # Explorer uses raw Anthropic tool-calling, not BaseAgent.
+    # Stored here so model + max_tokens are configurable via the Settings UI.
+    # custom_prompt overrides the inline _SYSTEM constant in explorer.py.
+    "EXPLORER": (None, 4096),
 }
 
 
-def _load_default_prompt(prompt_file: str | None) -> str:
+_EXPLORER_SYSTEM = """\
+You are a stock research assistant. Your job is to identify the best US-listed \
+stocks to analyze based on the user's request.
+
+You have access to live market data tools AND a general web search tool. Use them \
+to find stocks that genuinely match the user's intent — news-driven catalysts, \
+sector momentum, price criteria, etc.
+
+Process:
+1. Make 1-4 targeted tool calls to gather relevant data
+2. Use search_web for broad context, sector trends, or anything the financial tools don't cover
+3. Reason about which stocks best fit the user's request
+4. Call finalize_candidates with 3-8 tickers
+
+Rules:
+- US-listed equities only
+- Prefer stocks with meaningful liquidity (not micro-caps under $50M market cap unless user asks)
+- Be decisive — don't overthink it
+- If the user mentions a price range (e.g. "cheap" / "under $20"), respect it
+- You have a limited number of iterations — finalize when you have enough data\
+"""
+
+_INLINE_PROMPTS: dict[str, str] = {
+    "TICKER_EXTRACTOR": _TICKER_EXTRACTOR_PROMPT,
+    "EXPLORER": _EXPLORER_SYSTEM,
+}
+
+
+def _load_default_prompt(agent_type: str, prompt_file: str | None) -> str:
     """Return the default prompt text for an agent."""
     if prompt_file is None:
-        return _TICKER_EXTRACTOR_PROMPT
+        return _INLINE_PROMPTS.get(agent_type, "")
     path = _PROMPTS_DIR / prompt_file
     return path.read_text(encoding="utf-8").strip()
 
@@ -84,12 +116,14 @@ async def seed_agent_configs() -> None:
         for agent_type, (prompt_file, max_tokens) in _AGENT_DEFAULTS.items():
             if agent_type in existing:
                 continue
+            # Explorer defaults to Sonnet — it uses tool-calling and needs the extra power
+            model = "claude-sonnet-4-6" if agent_type == "EXPLORER" else default_model
             db.add(AgentConfig(
                 agent_type=agent_type,
-                model=default_model,
+                model=model,
                 max_tokens=max_tokens,
                 custom_prompt=None,
             ))
-            logger.info(f"Seeded AgentConfig for {agent_type} (model={default_model}, max_tokens={max_tokens})")
+            logger.info(f"Seeded AgentConfig for {agent_type} (model={model}, max_tokens={max_tokens})")
 
         await db.commit()

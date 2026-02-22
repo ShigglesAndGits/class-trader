@@ -37,6 +37,9 @@ dependencies = [
     "asyncpraw>=7.7.0",
     "praw>=7.7.0",
 
+    # Web search (Explorer agent — DuckDuckGo fallback, no API key required)
+    "duckduckgo-search>=6.0.0",
+
     # Scheduling
     "apscheduler>=3.10.0",
 

@@ -75,6 +75,11 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
     openai_base_url: str = Field(default="", alias="OPENAI_BASE_URL")
 
+    # ── Web search (Explorer agent) ─────────────────────────────────────────
+    # SearXNG: set to base URL of your instance, e.g. http://192.168.0.10:8080
+    # If unset, Explorer falls back to DuckDuckGo (no key required).
+    searxng_url: str = Field(default="", alias="SEARXNG_URL")
+
     @field_validator("log_level")
     @classmethod
     def validate_log_level(cls, v: str) -> str:

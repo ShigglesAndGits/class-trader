@@ -30,7 +30,7 @@ router = APIRouter()
 
 _PROMPTS_DIR = Path(__file__).parent.parent / "agents" / "prompts"
 
-# Inline fallback for TICKER_EXTRACTOR (no .md file)
+# Inline prompts for agents without .md files
 _TICKER_EXTRACTOR_DEFAULT_PROMPT = """You are a stock ticker extraction specialist.
 
 Given a user's natural language query about stocks, extract:
@@ -46,6 +46,32 @@ If the user says "find me momentum plays in energy", return themes=["energy mome
 and scan_news=true. If they say "analyze NVDA and MSFT", return tickers=["NVDA", "MSFT"]
 and scan_news=false."""
 
+_EXPLORER_DEFAULT_PROMPT = """\
+You are a stock research assistant. Your job is to identify the best US-listed \
+stocks to analyze based on the user's request.
+
+You have access to live market data tools AND a general web search tool. Use them \
+to find stocks that genuinely match the user's intent — news-driven catalysts, \
+sector momentum, price criteria, etc.
+
+Process:
+1. Make 1-4 targeted tool calls to gather relevant data
+2. Use search_web for broad context, sector trends, or anything the financial tools don't cover
+3. Reason about which stocks best fit the user's request
+4. Call finalize_candidates with 3-8 tickers
+
+Rules:
+- US-listed equities only
+- Prefer stocks with meaningful liquidity (not micro-caps under $50M market cap unless user asks)
+- Be decisive — don't overthink it
+- If the user mentions a price range (e.g. "cheap" / "under $20"), respect it
+- You have a limited number of iterations — finalize when you have enough data"""
+
+_INLINE_PROMPTS: dict[str, str] = {
+    "TICKER_EXTRACTOR": _TICKER_EXTRACTOR_DEFAULT_PROMPT,
+    "EXPLORER": _EXPLORER_DEFAULT_PROMPT,
+}
+
 _AGENT_PROMPT_FILES: dict[str, str | None] = {
     "REGIME_ANALYST": "regime_analyst.md",
     "BULL": "bull_agent.md",
@@ -55,6 +81,7 @@ _AGENT_PROMPT_FILES: dict[str, str | None] = {
     "DEGEN": "degen.md",
     "TICKER_EXTRACTOR": None,
     "DISCOVERY_PM": "discovery_pm.md",
+    "EXPLORER": None,
 }
 
 _AGENT_LABELS: dict[str, str] = {
@@ -66,13 +93,14 @@ _AGENT_LABELS: dict[str, str] = {
     "DEGEN": "Degen (Penny)",
     "TICKER_EXTRACTOR": "Ticker Extractor",
     "DISCOVERY_PM": "Discovery PM",
+    "EXPLORER": "Explorer",
 }
 
 
 def _load_default_prompt(agent_type: str) -> str:
     prompt_file = _AGENT_PROMPT_FILES.get(agent_type)
     if prompt_file is None:
-        return _TICKER_EXTRACTOR_DEFAULT_PROMPT
+        return _INLINE_PROMPTS.get(agent_type, "")
     path = _PROMPTS_DIR / prompt_file
     if path.exists():
         return path.read_text(encoding="utf-8").strip()
