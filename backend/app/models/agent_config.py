@@ -10,7 +10,7 @@ AgentConfig       — one row per agent type, stores model, max_tokens,
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import Integer, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -29,7 +29,7 @@ class LLMProviderConfig(Base):
     # For OpenAI-compatible endpoints (Ollama, OpenRouter, LM Studio, etc.)
     openai_base_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     openai_api_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(default=_now, onupdate=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 
 
 class AgentConfig(Base):
@@ -42,4 +42,4 @@ class AgentConfig(Base):
     max_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
     # null = use default .md file / inline constant
     custom_prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(default=_now, onupdate=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
