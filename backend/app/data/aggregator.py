@@ -176,18 +176,13 @@ async def build_market_context(db: AsyncSession) -> MarketContext:
     else:
         logger.info("FMP not configured — skipping fundamentals.")
 
-    # ── 8. TendieBot retail sentiment (async, all tickers) ────────────────
+    # ── 8. TendieBot retail sentiment via ApeWisdom (no API key required) ──
     retail_sentiment: dict[str, dict] = {}
-
-    if settings.configured_apis().get("reddit"):
-        logger.info("Crawling Reddit for retail sentiment...")
-        try:
-            bot = TendieBot()
-            retail_sentiment = await bot.get_retail_sentiment(watchlist=all_tickers)
-        except Exception as e:
-            logger.warning(f"TendieBot crawl failed: {e}")
-    else:
-        logger.info("Reddit not configured — skipping retail sentiment.")
+    try:
+        bot = TendieBot()
+        retail_sentiment = await bot.get_retail_sentiment(watchlist=all_tickers)
+    except Exception as e:
+        logger.warning(f"ApeWisdom sentiment fetch failed: {e}")
 
     # ── 9. Wash sale blacklist from DB ────────────────────────────────────
     wash_sales = await _load_wash_sales(db)

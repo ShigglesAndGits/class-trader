@@ -104,7 +104,8 @@ class Settings(BaseSettings):
             "finnhub": bool(self.finnhub_api_key and not self.finnhub_api_key.startswith("your-")),
             "alpha_vantage": bool(self.alpha_vantage_api_key and not self.alpha_vantage_api_key.startswith("your-")),
             "fmp": bool(self.fmp_api_key and not self.fmp_api_key.startswith("your-")),
-            "reddit": bool(self.reddit_client_id and not self.reddit_client_id.startswith("your-")),
+            # Retail sentiment via ApeWisdom — no API key required, always available
+            "apewisdom": True,
         }
 
 
