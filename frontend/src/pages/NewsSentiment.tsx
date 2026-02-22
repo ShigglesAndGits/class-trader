@@ -65,7 +65,7 @@ export default function NewsSentiment() {
           <LoadingState message="Loading news..." />
         ) : news.length === 0 ? (
           <div className="text-text-muted text-sm py-6 text-center">
-            Configure API keys to start ingesting news.
+            No news yet. Articles will appear after the next scheduled fetch.
           </div>
         ) : (
           <div className="space-y-3 divide-y divide-border">

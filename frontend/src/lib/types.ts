@@ -77,7 +77,7 @@ export interface PortfolioSnapshot {
 
 // ── Pipeline ─────────────────────────────────────────────────────────────────
 
-export type RunType = 'MORNING' | 'NOON' | 'NEWS_TRIGGER' | 'MANUAL'
+export type RunType = 'MORNING' | 'NOON' | 'NEWS_TRIGGER' | 'MANUAL' | 'DISCOVERY'
 export type RunStatus = 'RUNNING' | 'COMPLETED' | 'FAILED' | 'PAUSED'
 export type AgentType = 'REGIME_ANALYST' | 'BULL' | 'BEAR' | 'RESEARCHER' | 'PORTFOLIO_MANAGER' | 'DEGEN'
 
@@ -100,6 +100,7 @@ export interface AgentInteraction {
   parsed_output?: Record<string, unknown>
   tokens_used?: number
   latency_ms?: number
+  retry_count?: number
   created_at: string
   success: boolean
 }
@@ -127,4 +128,41 @@ export interface WatchlistEntry {
   is_active: boolean
   notes?: string
   added_at: string
+}
+
+// ── Discovery ────────────────────────────────────────────────────────────────
+
+export type DiscoveryAction = 'BUY' | 'CONSIDER' | 'AVOID'
+export type DiscoveryStatus = 'RUNNING' | 'COMPLETED' | 'FAILED'
+export type QueryMode = 'EXPLICIT' | 'NEWS_SCAN' | 'EXPLORE'
+
+export interface DiscoveryRecommendation {
+  action: DiscoveryAction
+  ticker: string
+  confidence: number
+  position_size_pct: number
+  reasoning: string
+  stop_loss_pct?: number
+  take_profit_pct?: number
+  suggested_sleeve: Sleeve
+}
+
+export interface DiscoveryRecommendations {
+  recommendations: DiscoveryRecommendation[]
+  overall_thesis: string
+  caveats: string[]
+}
+
+export interface DiscoveryChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+  ts: string
+}
+
+export type AgentStepStatus = 'pending' | 'running' | 'complete' | 'error'
+
+export interface AgentStep {
+  agent: string
+  status: AgentStepStatus
+  data?: Record<string, unknown>
 }

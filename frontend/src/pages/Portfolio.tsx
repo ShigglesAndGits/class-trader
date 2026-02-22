@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import clsx from 'clsx'
 import { api } from '../api/client'
 import LoadingState from '../components/shared/LoadingState'
-import { formatDollar, formatDate, pnlColor } from '../lib/utils'
+import { formatDollar, formatDate } from '../lib/utils'
 
 interface PositionData {
   id: number
@@ -63,7 +62,7 @@ export default function Portfolio() {
     refetchInterval: 60_000,
   })
 
-  const { data: tradeData, isLoading: tradesLoading } = useQuery<{
+  const { data: tradeData } = useQuery<{
     trades: TradeData[]
     count: number
   }>({

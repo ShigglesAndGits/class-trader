@@ -26,3 +26,43 @@ export const ACTION_COLORS: Record<string, string> = {
   SELL: 'badge-loss',
   HOLD: 'badge-info',
 }
+
+export const DISCOVERY_AGENT_LABELS: Record<string, string> = {
+  EXPLORER: 'Explorer',
+  REGIME_ANALYST: 'Regime Analyst',
+  BULL: 'Bull',
+  BEAR: 'Bear',
+  RESEARCHER: 'Researcher',
+  DISCOVERY_PM: 'Portfolio Manager',
+}
+
+/** Pipeline order for non-explore sessions (no EXPLORER step). */
+export const DISCOVERY_AGENT_ORDER = [
+  'REGIME_ANALYST',
+  'BULL',
+  'BEAR',
+  'RESEARCHER',
+  'DISCOVERY_PM',
+]
+
+/** Pipeline order for EXPLORE sessions (Explorer runs first). */
+export const DISCOVERY_AGENT_ORDER_EXPLORE = [
+  'EXPLORER',
+  'REGIME_ANALYST',
+  'BULL',
+  'BEAR',
+  'RESEARCHER',
+  'DISCOVERY_PM',
+]
+
+export const EXPLORER_TOOL_LABELS: Record<string, string> = {
+  search_financial_news: 'Searching news',
+  get_market_movers: 'Checking market movers',
+  lookup_ticker: 'Looking up ticker',
+}
+
+export const DISCOVERY_ACTION_COLORS: Record<string, string> = {
+  BUY: 'badge-gain',
+  CONSIDER: 'badge-warning',
+  AVOID: 'badge-loss',
+}

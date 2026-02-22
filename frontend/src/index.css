@@ -53,18 +53,21 @@
 
   .btn-primary {
     @apply bg-gain text-white px-4 py-2 rounded-md text-sm font-medium
-           hover:bg-green-400 transition-colors duration-150 cursor-pointer;
+           transition-colors duration-150 cursor-pointer;
   }
+  .btn-primary:hover { background-color: #0da271; }
 
   .btn-danger {
     @apply bg-loss text-white px-4 py-2 rounded-md text-sm font-medium
-           hover:bg-red-400 transition-colors duration-150 cursor-pointer;
+           transition-colors duration-150 cursor-pointer;
   }
+  .btn-danger:hover { background-color: #dc2626; }
 
   .btn-ghost {
     @apply text-text-secondary px-4 py-2 rounded-md text-sm font-medium
-           hover:bg-surface-2 hover:text-text-primary transition-colors duration-150 cursor-pointer;
+           transition-colors duration-150 cursor-pointer;
   }
+  .btn-ghost:hover { background-color: #1a2235; color: #E5E7EB; }
 
   .badge-gain {
     @apply text-gain bg-gain/10 px-2 py-0.5 rounded text-xs font-mono;

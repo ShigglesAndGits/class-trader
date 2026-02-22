@@ -8,11 +8,13 @@ import {
   BarChart2,
   Settings,
   TrendingUp,
+  Search,
 } from 'lucide-react'
 import clsx from 'clsx'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/discover', icon: Search, label: 'Discover' },
   { to: '/agents', icon: Bot, label: 'Agent Activity' },
   { to: '/portfolio', icon: Briefcase, label: 'Portfolio' },
   { to: '/approvals', icon: CheckSquare, label: 'Approvals' },

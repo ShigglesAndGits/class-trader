@@ -2,6 +2,7 @@
 Portfolio API — positions, trade history, equity snapshots.
 """
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 
@@ -9,6 +10,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.data.alpaca_client import AlpacaClient
 from app.database import get_db
 from app.models.market_data import PortfolioSnapshot
 from app.models.trading import Execution, Position
@@ -20,38 +22,83 @@ router = APIRouter()
 
 @router.get("/positions")
 async def get_positions(db: AsyncSession = Depends(get_db)):
-    """All currently open positions, grouped by sleeve."""
-    result = await db.execute(
+    """
+    All currently open positions — live from Alpaca with sleeve annotation from DB.
+    Falls back to DB-only if Alpaca is unreachable.
+    """
+    # Local DB positions for sleeve + cost basis metadata
+    db_result = await db.execute(
         select(Position)
         .where(Position.is_open == True)  # noqa: E712
         .order_by(Position.sleeve, Position.ticker)
     )
-    positions = result.scalars().all()
+    db_positions = {p.ticker: p for p in db_result.scalars().all()}
 
-    def _pos(p: Position) -> dict:
-        effective_cost = p.adjusted_cost_basis if p.adjusted_cost_basis else p.cost_basis
+    # Live positions from Alpaca
+    try:
+        alpaca = AlpacaClient()
+        live = await asyncio.to_thread(alpaca.get_positions)
+    except Exception as e:
+        logger.warning(f"Alpaca positions fetch failed, using DB only: {e}")
+        live = []
+
+    def _merge(ap: dict) -> dict:
+        db_p = db_positions.get(ap["ticker"])
+        effective_cost = None
+        if db_p:
+            effective_cost = db_p.adjusted_cost_basis or db_p.cost_basis
+        return {
+            "id": db_p.id if db_p else None,
+            "ticker": ap["ticker"],
+            "sleeve": db_p.sleeve if db_p else "MAIN",
+            "qty": ap["qty"],
+            "current_price": ap["current_price"],
+            "market_value": ap["market_value"],
+            "entry_price": ap["avg_entry_price"],
+            "cost_basis": ap["cost_basis"],
+            "adjusted_cost_basis": db_p.adjusted_cost_basis if db_p else None,
+            "unrealized_pnl": ap["unrealized_pnl"],
+            "unrealized_pnl_pct": ap["unrealized_pnl_pct"],
+            "entry_date": db_p.entry_date.isoformat() if db_p and db_p.entry_date else None,
+            "wash_sale_adjusted": bool(db_p and db_p.adjusted_cost_basis),
+            "source": "alpaca_live",
+        }
+
+    def _db_only(p: Position) -> dict:
+        effective_cost = p.adjusted_cost_basis or p.cost_basis
         cost_per_share = effective_cost / p.current_qty if p.current_qty > 0 else 0.0
         return {
             "id": p.id,
             "ticker": p.ticker,
             "sleeve": p.sleeve,
             "qty": p.current_qty,
+            "current_price": None,
+            "market_value": None,
             "entry_price": p.entry_price,
             "cost_basis": p.cost_basis,
             "adjusted_cost_basis": p.adjusted_cost_basis,
-            "cost_per_share": cost_per_share,
+            "unrealized_pnl": None,
+            "unrealized_pnl_pct": None,
             "entry_date": p.entry_date.isoformat() if p.entry_date else None,
             "wash_sale_adjusted": p.adjusted_cost_basis is not None,
+            "source": "db_only",
         }
 
-    main = [_pos(p) for p in positions if p.sleeve == "MAIN"]
-    penny = [_pos(p) for p in positions if p.sleeve == "PENNY"]
+    if live:
+        merged = [_merge(ap) for ap in live]
+        main = [p for p in merged if p["sleeve"] == "MAIN"]
+        penny = [p for p in merged if p["sleeve"] == "PENNY"]
+    else:
+        db_list = list(db_positions.values())
+        merged = [_db_only(p) for p in db_list]
+        main = [p for p in merged if p["sleeve"] == "MAIN"]
+        penny = [p for p in merged if p["sleeve"] == "PENNY"]
 
     return {
-        "positions": [_pos(p) for p in positions],
+        "positions": merged,
         "main": main,
         "penny": penny,
-        "total_count": len(positions),
+        "total_count": len(merged),
     }
 
 

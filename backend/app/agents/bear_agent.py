@@ -18,6 +18,7 @@ class BearAgent(BaseAgent):
         ctx: MarketContext,
         regime: RegimeAssessment,
         tickers: list[str],
+        extra_context: str | None = None,
     ) -> list[TickerAnalysis]:
         """Build the bear case for each ticker in the main sleeve."""
         self.logger.info(f"Building bear case for {len(tickers)} tickers...")
@@ -32,6 +33,13 @@ class BearAgent(BaseAgent):
             f"Stress-test the following {len(tickers)} tickers and build the bear case for each:\n\n"
             f"{ticker_data}"
         )
+
+        if extra_context:
+            user_content += (
+                f"\n\n## User Counter-Argument\n"
+                f"The user has raised the following counter-point. "
+                f"Address it directly in your bear analysis:\n{extra_context}"
+            )
 
         result = await self._call(
             response_model=TickerAnalyses,

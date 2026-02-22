@@ -5,13 +5,15 @@
 # from source. No hot-reload volume mounts — this is the production-mode file.
 #
 # Prerequisites:
-#   1. Copy homelab.env.template → .env and fill in all values
-#   2. If registry is HTTP (not HTTPS), add the registry host to Docker's
+#   1. If registry is HTTP (not HTTPS), add the registry host to Docker's
 #      insecure-registries in /etc/docker/daemon.json on this machine:
 #        { "insecure-registries": ["<REGISTRY_HOST>:5000"] }
 #      Then: sudo systemctl restart docker
-#   3. docker compose -f docker-compose.homelab.yml pull
-#   4. docker compose -f docker-compose.homelab.yml up -d
+#   2. In Portainer: paste this file into the stack editor and set all
+#      environment variables in the "Environment variables" section below
+#      the compose editor. All ${VAR} references are populated from there.
+#   3. Alternatively, run directly: docker compose -f docker-compose.homelab.yml up -d
+#      (with a .env file present, or variables exported in your shell)
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:
@@ -38,8 +40,41 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    env_file:
-      - .env                  # All API keys + app config come from here
+    environment:
+      # Anthropic
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # Alpaca
+      - ALPACA_API_KEY=${ALPACA_API_KEY}
+      - ALPACA_SECRET_KEY=${ALPACA_SECRET_KEY}
+      - ALPACA_PAPER=${ALPACA_PAPER:-true}
+      # Market data
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+      - FMP_API_KEY=${FMP_API_KEY}
+      # Reddit (optional)
+      - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID:-}
+      - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET:-}
+      - REDDIT_USER_AGENT=${REDDIT_USER_AGENT:-class-trader:v0.1}
+      # Database
+      - DATABASE_URL=${DATABASE_URL}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      # Notifications
+      - APPRISE_URLS=${APPRISE_URLS:-}
+      # App config
+      - AUTO_APPROVE=${AUTO_APPROVE:-false}
+      - MAIN_SLEEVE_ALLOCATION=${MAIN_SLEEVE_ALLOCATION:-75.0}
+      - PENNY_SLEEVE_ALLOCATION=${PENNY_SLEEVE_ALLOCATION:-25.0}
+      - MAX_POSITION_PCT_MAIN=${MAX_POSITION_PCT_MAIN:-30.0}
+      - MAX_POSITION_DOLLARS_PENNY=${MAX_POSITION_DOLLARS_PENNY:-8.0}
+      - MIN_CONFIDENCE_MAIN=${MIN_CONFIDENCE_MAIN:-0.65}
+      - MIN_CONFIDENCE_PENNY=${MIN_CONFIDENCE_PENNY:-0.60}
+      - DAILY_LOSS_LIMIT_MAIN_PCT=${DAILY_LOSS_LIMIT_MAIN_PCT:-5.0}
+      - DAILY_LOSS_LIMIT_PENNY_PCT=${DAILY_LOSS_LIMIT_PENNY_PCT:-15.0}
+      - CONSECUTIVE_LOSS_PAUSE=${CONSECUTIVE_LOSS_PAUSE:-3}
+      - TIMEZONE=${TIMEZONE:-America/New_York}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     # No --reload in homelab (that's dev-only)
@@ -49,7 +84,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 30s
+      start_period: 60s
 
   frontend:
     image: ${REGISTRY_HOST}:5000/class-trader/frontend:latest

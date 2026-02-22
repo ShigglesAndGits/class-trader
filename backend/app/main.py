@@ -20,6 +20,7 @@ from app.routers import (
     analytics,
     approvals,
     dashboard,
+    discovery,
     news,
     portfolio,
     settings as settings_router,
@@ -72,6 +73,7 @@ app.include_router(news.router, prefix="/api/news", tags=["news"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
 app.include_router(watchlist.router, prefix="/api/watchlist", tags=["watchlist"])
 app.include_router(settings_router.router, prefix="/api/settings", tags=["settings"])
+app.include_router(discovery.router, prefix="/api/discovery", tags=["discovery"])
 app.include_router(ws.router, prefix="/ws", tags=["websocket"])
 
 

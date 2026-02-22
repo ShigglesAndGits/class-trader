@@ -31,7 +31,7 @@ export default function AgentCard({ interaction }: AgentCardProps) {
         <div className="flex items-center gap-3 text-text-muted text-xs font-mono">
           {interaction.tokens_used && <span>{interaction.tokens_used.toLocaleString()} tok</span>}
           {interaction.latency_ms && <span>{interaction.latency_ms}ms</span>}
-          {interaction.retry_count > 0 && (
+          {(interaction.retry_count ?? 0) > 0 && (
             <span className="text-warning">{interaction.retry_count} retries</span>
           )}
         </div>

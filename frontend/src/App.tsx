@@ -10,6 +10,7 @@ import Approvals from './pages/Approvals'
 import NewsSentiment from './pages/NewsSentiment'
 import Analytics from './pages/Analytics'
 import Settings from './pages/Settings'
+import Discovery from './pages/Discovery'
 
 /**
  * Maps backend WebSocket event types to TanStack Query cache keys to invalidate.
@@ -75,6 +76,7 @@ export default function App() {
           <Route path="news" element={<NewsSentiment />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="discover" element={<Discovery />} />
         </Route>
       </Routes>
     </BrowserRouter>

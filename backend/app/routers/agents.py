@@ -68,25 +68,28 @@ async def get_pipeline_run(
     )).scalars().all()
 
     return {
-        "id": run.id,
-        "run_type": run.run_type,
-        "started_at": run.started_at.isoformat() if run.started_at else None,
-        "completed_at": run.completed_at.isoformat() if run.completed_at else None,
-        "regime": run.regime,
-        "regime_confidence": run.regime_confidence,
-        "status": run.status,
-        "error_message": run.error_message,
+        "run": {
+            "id": run.id,
+            "run_type": run.run_type,
+            "started_at": run.started_at.isoformat() if run.started_at else None,
+            "completed_at": run.completed_at.isoformat() if run.completed_at else None,
+            "regime": run.regime,
+            "regime_confidence": run.regime_confidence,
+            "status": run.status,
+            "error_message": run.error_message,
+        },
         "interactions": [
             {
                 "id": i.id,
                 "agent_type": i.agent_type,
+                "prompt_text": i.prompt_text or "",
+                "response_text": i.response_text or "",
+                "parsed_output": i.parsed_output,
                 "tokens_used": i.tokens_used,
                 "latency_ms": i.latency_ms,
                 "retry_count": i.retry_count,
                 "success": i.success,
                 "created_at": i.created_at.isoformat() if i.created_at else None,
-                # Full prompt/response available but large — only include on explicit request
-                "has_reasoning": i.parsed_output is not None,
             }
             for i in interactions
         ],

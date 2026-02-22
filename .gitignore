@@ -52,6 +52,9 @@ lancedb/
 # System mount points
 mnt/
 
+# Local test/scratch files (may contain real credentials)
+teststuff/
+
 # Stray root-level artifacts (real files live in backend/ and scripts/)
 /Dockerfile
 /pyproject.toml

@@ -318,6 +318,154 @@ def _shortlist_tickers(
     return sorted(scores, key=lambda t: -scores[t])[:n]
 
 
+async def build_partial_market_context(
+    db: AsyncSession,
+    tickers: list[str],
+) -> MarketContext:
+    """
+    Build a MarketContext for an explicit ticker list — used by the discovery
+    pipeline instead of reading the watchlist.
+
+    Always prepends SPY for regime analysis. Applies the same shortlisting
+    logic for expensive AV/FMP calls.
+    """
+    settings = get_settings()
+
+    all_tickers = list(dict.fromkeys(["SPY"] + [t.upper().strip() for t in tickers]))
+    logger.info(f"Building partial MarketContext for discovery: {all_tickers}")
+
+    alpaca = AlpacaClient()
+    finnhub = FinnhubClient()
+    av = AlphaVantageClient()
+    fmp = FMPClient()
+
+    (
+        bars_result,
+        quotes_result,
+        vix_result,
+        yield_result,
+    ) = await asyncio.gather(
+        asyncio.to_thread(alpaca.get_daily_bars, all_tickers),
+        asyncio.to_thread(alpaca.get_latest_quotes, all_tickers),
+        asyncio.to_thread(finnhub.get_vix),
+        asyncio.to_thread(finnhub.get_treasury_yield_10y),
+        return_exceptions=True,
+    )
+
+    bars: dict = bars_result if isinstance(bars_result, dict) else {}
+    quotes: dict = quotes_result if isinstance(quotes_result, dict) else {}
+    vix: Optional[float] = vix_result if isinstance(vix_result, float) else None
+    treasury_yield: Optional[float] = yield_result if isinstance(yield_result, float) else None
+
+    ticker_news: dict[str, list] = {}
+    ticker_sentiment: dict[str, dict] = {}
+
+    for ticker in all_tickers:
+        try:
+            news = await asyncio.to_thread(finnhub.get_company_news, ticker)
+            ticker_news[ticker] = news
+        except Exception as e:
+            logger.warning(f"News fetch failed for {ticker}: {e}")
+            ticker_news[ticker] = []
+
+        try:
+            sentiment = await asyncio.to_thread(finnhub.get_news_sentiment, ticker)
+            if sentiment:
+                ticker_sentiment[ticker] = sentiment
+        except Exception as e:
+            logger.warning(f"Sentiment fetch failed for {ticker}: {e}")
+
+        await asyncio.sleep(0.5)
+
+    shortlisted = _shortlist_tickers(all_tickers, ticker_sentiment, bars, n=_AV_MAX_TICKERS)
+
+    ticker_rsi: dict[str, Optional[float]] = {}
+    ticker_macd: dict[str, Optional[dict]] = {}
+
+    if settings.configured_apis().get("alpha_vantage"):
+        for ticker in shortlisted:
+            try:
+                rsi = await asyncio.to_thread(av.get_rsi, ticker)
+                ticker_rsi[ticker] = rsi
+                await asyncio.sleep(_AV_CALL_DELAY)
+                macd = await asyncio.to_thread(av.get_macd, ticker)
+                ticker_macd[ticker] = macd
+                await asyncio.sleep(_AV_CALL_DELAY)
+            except Exception as e:
+                logger.warning(f"AV fetch failed for {ticker}: {e}")
+
+    ticker_profile: dict[str, Optional[dict]] = {}
+
+    if settings.configured_apis().get("fmp"):
+        for ticker in shortlisted[:_FMP_MAX_TICKERS]:
+            try:
+                profile = await asyncio.to_thread(fmp.get_profile, ticker)
+                ticker_profile[ticker] = profile
+                await asyncio.sleep(0.3)
+            except Exception as e:
+                logger.warning(f"FMP fetch failed for {ticker}: {e}")
+
+    ticker_data: dict[str, TickerContext] = {}
+    for ticker in all_tickers:
+        ticker_bars_raw = bars.get(ticker, [])
+        ticker_quote = quotes.get(ticker, {})
+        profile = ticker_profile.get(ticker) or {}
+
+        current_price = (
+            ticker_quote.get("mid_price")
+            or ticker_quote.get("ask_price")
+            or (ticker_bars_raw[-1]["close"] if ticker_bars_raw else 0.0)
+        )
+        volume = ticker_bars_raw[-1]["volume"] if ticker_bars_raw else 0
+        sentiment_score = (
+            ticker_sentiment[ticker].get("score")
+            if ticker_sentiment.get(ticker)
+            else None
+        )
+
+        ticker_data[ticker] = TickerContext(
+            ticker=ticker,
+            price_bars=[PriceBar(**b) for b in ticker_bars_raw],
+            current_price=float(current_price or 0.0),
+            volume=int(volume),
+            rsi_14=ticker_rsi.get(ticker),
+            macd=ticker_macd.get(ticker),
+            bollinger_bands=None,
+            recent_news=[
+                NewsItem(
+                    headline=n.get("headline", ""),
+                    summary=n.get("summary"),
+                    source=n.get("source"),
+                    url=n.get("url"),
+                    published_at=n.get("datetime"),
+                )
+                for n in ticker_news.get(ticker, [])[:10]
+            ],
+            news_sentiment_avg=sentiment_score,
+            insider_sentiment=None,
+            pe_ratio=profile.get("pe_ratio") if profile else None,
+            market_cap=profile.get("market_cap") if profile else None,
+            retail_sentiment=None,
+        )
+
+    spy_bars_raw = bars.get("SPY", [])
+    wash_sales = await _load_wash_sales(db)
+
+    return MarketContext(
+        timestamp=datetime.now(timezone.utc),
+        spy_bars=[PriceBar(**b) for b in spy_bars_raw],
+        vix_level=vix,
+        sector_performance={},
+        treasury_yield_10y=treasury_yield,
+        wsb_trending_tickers=[],
+        ticker_data=ticker_data,
+        account_equity=0.0,   # Not needed for discovery — no portfolio state
+        settled_cash=0.0,
+        current_positions=[],
+        wash_sale_blacklist=wash_sales,
+    )
+
+
 async def _load_wash_sales(db: AsyncSession) -> list[WashSaleEntry]:
     """Load active wash sale blacklist entries from DB."""
     from datetime import date

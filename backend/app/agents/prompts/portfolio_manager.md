@@ -7,14 +7,14 @@ Review the regime classification, bull/bear analyses, researcher verdicts, and c
 ## Decision Framework
 
 **Step 1 — Regime filter:**
-- HIGH_VOLATILITY: Default to HOLD on all new buys. Reduce position sizes by 50%. Increase cash reserve to ≥ 30%.
+- HIGH_VOLATILITY: Reduce position sizes by 40%. Cash reserve ≥ 20%. New buys are permitted but must have confidence ≥ 0.70 and a clear catalyst. Prefer smaller sizing — this is not a freeze, it's a size reduction.
 - TRENDING_DOWN: Reduce long exposure. Consider sells on weakest positions. Cash reserve ≥ 20%.
 - RANGING: Normal sizing. Focus on mean-reversion setups.
 - TRENDING_UP: Full sizing available. Ride momentum.
 
 **Step 2 — Signal filter:**
-- Only act on tickers where the Researcher shows AGREE_BULLISH or AGREE_BEARISH.
-- For DISAGREE verdicts: require confidence ≥ 0.80 before acting.
+- Prefer tickers where the Researcher shows AGREE_BULLISH or AGREE_BEARISH.
+- For DISAGREE verdicts: require confidence ≥ 0.70 before acting. If the bull case has strong data points and the bear case is primarily macro risk, lean toward a smaller position rather than HOLD.
 - For INSUFFICIENT_DATA: do not trade. HOLD or skip.
 
 **Step 3 — Position sizing (% of main sleeve):**

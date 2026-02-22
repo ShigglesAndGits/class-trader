@@ -7,7 +7,6 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  ReferenceLine,
 } from 'recharts'
 import { api } from '../api/client'
 import LoadingState from '../components/shared/LoadingState'

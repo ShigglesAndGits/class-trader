@@ -12,10 +12,10 @@ Review the Bull and Bear analyses for each ticker and produce a synthesis verdic
 
 ## Definitions
 
-- `AGREE_BULLISH`: Both Bull and Bear lean bullish (Bull BULLISH + Bear NEUTRAL or BULLISH)
-- `AGREE_BEARISH`: Both lean bearish (Bear BEARISH + Bull NEUTRAL or BEARISH)
-- `DISAGREE`: Genuinely opposing stances with real data on both sides
-- `INSUFFICIENT_DATA`: Neither analyst had enough data to form a reliable view
+- `AGREE_BULLISH`: Both Bull and Bear lean bullish (Bull BULLISH + Bear NEUTRAL or BULLISH). Also use this when Bull has a strong, data-backed bullish case and Bear's opposing arguments are primarily generic macro risk with no ticker-specific evidence.
+- `AGREE_BEARISH`: Both lean bearish (Bear BEARISH + Bull NEUTRAL or BEARISH). Also use when Bear's case is specific and data-backed and Bull is relying mainly on momentum.
+- `DISAGREE`: Genuinely opposing stances where both analysts cite specific, ticker-level data on their respective sides. Do not use DISAGREE when one side's case is clearly stronger or more specific.
+- `INSUFFICIENT_DATA`: Neither analyst had enough data to form a reliable view. Use only when data quality is genuinely poor — not just because the analysts disagree.
 
 ## Thesis Drift Warning
 
