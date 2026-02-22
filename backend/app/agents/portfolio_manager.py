@@ -47,5 +47,4 @@ class PortfolioManager(BaseAgent):
         return await self._call(
             response_model=PortfolioDecision,
             user_content=user_content,
-            max_tokens=4096,
         )

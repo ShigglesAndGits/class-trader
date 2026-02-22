@@ -5,7 +5,7 @@ import { api } from '../api/client'
 import LoadingState from '../components/shared/LoadingState'
 import AutoApproveToggle from '../components/dashboard/AutoApproveToggle'
 import { formatDate } from '../lib/utils'
-import type { WatchlistEntry } from '../lib/types'
+import type { WatchlistEntry, LLMProviderConfig, AgentLLMConfig } from '../lib/types'
 
 interface SettingsData {
   auto_approve: boolean
@@ -33,6 +33,14 @@ interface CircuitBreaker {
   is_active: boolean
 }
 
+// Known Anthropic model IDs for datalist autocomplete
+const ANTHROPIC_MODELS = [
+  'claude-haiku-4-5-20251001',
+  'claude-sonnet-4-6',
+  'claude-opus-4-6',
+  'claude-haiku-3-5-20241022',
+]
+
 export default function Settings() {
   const client = useQueryClient()
 
@@ -51,6 +59,16 @@ export default function Settings() {
     queryKey: ['watchlist'],
     queryFn: () => api.get('/api/watchlist/'),
     refetchInterval: 60_000,
+  })
+
+  const { data: providerData, refetch: refetchProvider } = useQuery<LLMProviderConfig>({
+    queryKey: ['llm-provider'],
+    queryFn: () => api.get('/api/settings/llm/provider'),
+  })
+
+  const { data: agentConfigsData, refetch: refetchAgents } = useQuery<{ agents: AgentLLMConfig[] }>({
+    queryKey: ['llm-agents'],
+    queryFn: () => api.get('/api/settings/llm/agents'),
   })
 
   const resolveBreaker = useMutation({
@@ -75,6 +93,7 @@ export default function Settings() {
   const breakers = cbData?.circuit_breakers ?? []
   const activeBreakers = breakers.filter((b) => b.is_active)
   const watchlist = watchlistData?.tickers ?? []
+  const agentConfigs = agentConfigsData?.agents ?? []
 
   return (
     <div className="space-y-5 max-w-2xl">
@@ -189,6 +208,35 @@ export default function Settings() {
         )}
       </div>
 
+      {/* LLM & Agents */}
+      <div className="card">
+        <div className="card-header">LLM &amp; Agents</div>
+
+        {/* Provider sub-section */}
+        <LLMProviderSection
+          config={providerData ?? null}
+          onSaved={() => refetchProvider()}
+        />
+
+        {/* Per-agent config */}
+        {agentConfigs.length > 0 && (
+          <div className="mt-5 pt-5 border-t border-border">
+            <p className="text-text-secondary text-xs font-medium uppercase tracking-wider mb-3">
+              Per-Agent Config
+            </p>
+            <div className="space-y-2">
+              {agentConfigs.map((cfg) => (
+                <AgentConfigRow
+                  key={cfg.agent_type}
+                  config={cfg}
+                  onSaved={() => refetchAgents()}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Risk parameters */}
       <div className="card">
         <div className="card-header">Risk Parameters</div>
@@ -241,6 +289,305 @@ export default function Settings() {
     </div>
   )
 }
+
+// ── LLM Provider Section ────────────────────────────────────────────────────
+
+function LLMProviderSection({
+  config,
+  onSaved,
+}: {
+  config: LLMProviderConfig | null
+  onSaved: () => void
+}) {
+  const [provider, setProvider] = useState<'anthropic' | 'openai'>(config?.provider ?? 'anthropic')
+  const [baseUrl, setBaseUrl] = useState(config?.openai_base_url ?? '')
+  const [apiKey, setApiKey] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+
+  // Sync from query if config loads after mount
+  if (config && config.provider !== provider && !saving) {
+    setProvider(config.provider)
+    setBaseUrl(config.openai_base_url ?? '')
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    setError('')
+    try {
+      await api.put('/api/settings/llm/provider', {
+        provider,
+        openai_base_url: baseUrl || null,
+        openai_api_key: apiKey || null,
+      })
+      setSaved(true)
+      setApiKey('')
+      onSaved()
+      setTimeout(() => setSaved(false), 2000)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputCls = clsx(
+    'w-full bg-surface-2 border border-border rounded px-3 py-1.5',
+    'text-text-primary text-sm placeholder:text-text-muted',
+    'focus:outline-none focus:border-info/50'
+  )
+
+  return (
+    <div className="space-y-3">
+      {/* Provider toggle */}
+      <div className="flex gap-1 bg-surface-2 rounded-md p-0.5 border border-border w-fit">
+        {(['anthropic', 'openai'] as const).map((p) => (
+          <button
+            key={p}
+            onClick={() => setProvider(p)}
+            className={clsx(
+              'px-3 py-1 rounded text-sm transition-colors',
+              provider === p
+                ? 'bg-info/15 text-info border border-info/30'
+                : 'text-text-secondary hover:text-text-primary'
+            )}
+          >
+            {p === 'anthropic' ? 'Anthropic' : 'OpenAI-compatible'}
+          </button>
+        ))}
+      </div>
+
+      {/* OpenAI-compatible fields */}
+      {provider === 'openai' && (
+        <div className="space-y-2 pl-1">
+          <div className="p-2.5 rounded-md bg-warning/5 border border-warning/30 text-xs text-warning">
+            Structured output reliability varies by model. Local models may produce schema errors.
+            Explorer mode always requires Anthropic.
+          </div>
+          <div>
+            <label className="text-text-muted text-xs block mb-1">Base URL</label>
+            <input
+              type="text"
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              placeholder="http://localhost:11434/v1"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="text-text-muted text-xs block mb-1">
+              API Key{' '}
+              {config?.has_api_key && (
+                <span className="text-gain">•••••• (set — leave blank to keep)</span>
+              )}
+            </label>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder={config?.has_api_key ? '(unchanged)' : 'sk-… or leave blank for Ollama'}
+              className={inputCls}
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="btn-primary text-sm disabled:opacity-50"
+        >
+          {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save Provider'}
+        </button>
+        {error && <span className="text-loss text-xs">{error}</span>}
+      </div>
+    </div>
+  )
+}
+
+// ── Per-Agent Config Row ────────────────────────────────────────────────────
+
+function AgentConfigRow({
+  config,
+  onSaved,
+}: {
+  config: AgentLLMConfig
+  onSaved: () => void
+}) {
+  const [model, setModel] = useState(config.model)
+  const [maxTokens, setMaxTokens] = useState(config.max_tokens)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+  const [showPrompt, setShowPrompt] = useState(false)
+  const [promptText, setPromptText] = useState(config.effective_prompt)
+  const [savingPrompt, setSavingPrompt] = useState(false)
+  const [promptSaved, setPromptSaved] = useState(false)
+  const [promptError, setPromptError] = useState('')
+
+  async function handleSaveConfig() {
+    if (maxTokens < 256) {
+      setError('Min 256 tokens')
+      return
+    }
+    setSaving(true)
+    setError('')
+    try {
+      await api.put(`/api/settings/llm/agents/${config.agent_type}`, {
+        model,
+        max_tokens: maxTokens,
+      })
+      setSaved(true)
+      onSaved()
+      setTimeout(() => setSaved(false), 2000)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleSavePrompt() {
+    setSavingPrompt(true)
+    setPromptError('')
+    try {
+      await api.put(`/api/settings/llm/agents/${config.agent_type}/prompt`, {
+        prompt: promptText,
+      })
+      setPromptSaved(true)
+      onSaved()
+      setTimeout(() => setPromptSaved(false), 2000)
+    } catch (e: unknown) {
+      setPromptError(e instanceof Error ? e.message : 'Save failed')
+    } finally {
+      setSavingPrompt(false)
+    }
+  }
+
+  async function handleResetPrompt() {
+    setSavingPrompt(true)
+    setPromptError('')
+    try {
+      await api.delete(`/api/settings/llm/agents/${config.agent_type}/prompt`)
+      setPromptText(config.default_prompt)
+      setPromptSaved(true)
+      onSaved()
+      setTimeout(() => setPromptSaved(false), 2000)
+    } catch (e: unknown) {
+      setPromptError(e instanceof Error ? e.message : 'Reset failed')
+    } finally {
+      setSavingPrompt(false)
+    }
+  }
+
+  const inputCls = clsx(
+    'bg-surface-2 border border-border rounded px-2 py-1',
+    'text-text-primary text-sm placeholder:text-text-muted',
+    'focus:outline-none focus:border-info/50'
+  )
+
+  return (
+    <div className="border border-border rounded-lg overflow-hidden">
+      <div className="flex items-center gap-3 px-3 py-2">
+        {/* Agent label */}
+        <span className="text-text-secondary text-sm w-36 shrink-0">{config.label}</span>
+
+        {/* Model input */}
+        <div className="flex-1">
+          <input
+            list="anthropic-models"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            placeholder="model-id"
+            className={clsx(inputCls, 'w-full font-mono text-xs')}
+          />
+          <datalist id="anthropic-models">
+            {ANTHROPIC_MODELS.map((m) => <option key={m} value={m} />)}
+          </datalist>
+        </div>
+
+        {/* Max tokens */}
+        <input
+          type="number"
+          value={maxTokens}
+          onChange={(e) => setMaxTokens(Number(e.target.value))}
+          min={256}
+          step={256}
+          className={clsx(inputCls, 'w-24 font-mono text-xs text-right')}
+          title="Max tokens"
+        />
+
+        {/* Prompt status */}
+        <span
+          className={config.has_custom_prompt ? 'badge-warning text-xs' : 'badge-info text-xs'}
+          title={config.has_custom_prompt ? `Custom · last edited ${config.updated_at ?? '—'}` : 'Using default prompt'}
+        >
+          {config.has_custom_prompt ? 'Custom' : 'Default'}
+        </span>
+
+        {/* Prompt toggle */}
+        <button
+          onClick={() => setShowPrompt((v) => !v)}
+          className="text-text-muted text-xs hover:text-text-primary transition-colors shrink-0"
+        >
+          {showPrompt ? 'Hide' : 'Edit'} prompt
+        </button>
+
+        {/* Save config button */}
+        <button
+          onClick={handleSaveConfig}
+          disabled={saving}
+          className="btn-ghost text-xs border border-border shrink-0 disabled:opacity-50"
+        >
+          {saving ? '…' : saved ? '✓' : 'Save'}
+        </button>
+      </div>
+
+      {error && (
+        <p className="text-loss text-xs px-3 pb-1">{error}</p>
+      )}
+
+      {/* Inline prompt editor */}
+      {showPrompt && (
+        <div className="border-t border-border bg-surface-2/30 p-3 space-y-2">
+          <textarea
+            value={promptText}
+            onChange={(e) => setPromptText(e.target.value)}
+            rows={12}
+            className={clsx(
+              'w-full bg-surface border border-border rounded px-3 py-2 resize-y',
+              'text-text-primary text-xs font-mono',
+              'focus:outline-none focus:border-info/50'
+            )}
+          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handleSavePrompt}
+              disabled={savingPrompt}
+              className="btn-primary text-xs disabled:opacity-50"
+            >
+              {savingPrompt ? 'Saving…' : promptSaved ? 'Saved ✓' : 'Save Prompt'}
+            </button>
+            {config.has_custom_prompt && (
+              <button
+                onClick={handleResetPrompt}
+                disabled={savingPrompt}
+                className="btn-ghost text-xs border border-border disabled:opacity-50"
+              >
+                Reset to default
+              </button>
+            )}
+            {promptError && <span className="text-loss text-xs">{promptError}</span>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Watchlist components ────────────────────────────────────────────────────
 
 function WatchlistRow({
   entry,

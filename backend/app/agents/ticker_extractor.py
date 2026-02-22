@@ -39,7 +39,6 @@ class TickerExtractor(BaseAgent):
         result = await self._call(
             response_model=TickerExtractionResult,
             user_content=f"User query: {query}",
-            max_tokens=512,
         )
         # Normalize tickers
         result.tickers = [t.upper().strip() for t in result.tickers if t.strip()]

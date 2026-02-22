@@ -97,8 +97,12 @@ export default function QueryInput({ onSubmit, isLoading, disabled }: Props) {
         </button>
       </div>
 
-      {activeMode && (
+      {activeMode ? (
         <p className="text-xs text-text-muted pl-1">{activeMode.description}</p>
+      ) : (
+        <p className="text-xs text-text-muted pl-1">
+          Tip: 3–4 tickers works best — longer lists may hit token limits.
+        </p>
       )}
     </form>
   )

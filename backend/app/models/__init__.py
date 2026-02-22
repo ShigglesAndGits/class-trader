@@ -1,4 +1,5 @@
 # Import all models here so SQLAlchemy Base sees them for create_all / Alembic
+from app.models.agent_config import AgentConfig, LLMProviderConfig
 from app.models.discovery import DiscoverySession
 from app.models.market_data import NewsItem, PortfolioSnapshot, RedditMention
 from app.models.pipeline import AgentInteraction, PipelineRun
@@ -19,4 +20,6 @@ __all__ = [
     "CircuitBreakerEvent",
     "Watchlist",
     "DiscoverySession",
+    "AgentConfig",
+    "LLMProviderConfig",
 ]

@@ -109,5 +109,4 @@ class DiscoveryPM(BaseAgent):
         return await self._call(
             response_model=DiscoveryRecommendations,
             user_content=user_content,
-            max_tokens=4096,
         )

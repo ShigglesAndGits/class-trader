@@ -42,6 +42,5 @@ class DegenAgent(BaseAgent):
         result = await self._call(
             response_model=DegenDecisions,
             user_content=user_content,
-            max_tokens=2048,
         )
         return result.decisions

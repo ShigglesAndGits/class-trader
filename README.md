@@ -120,7 +120,7 @@ A dark-themed financial terminal dashboard with:
 - **Approval Queue** — Pending trades with one-tap approve/reject and bulk actions
 - **News & Sentiment** — Finnhub feed + TendieBot retail sentiment panel (WSB hype scores, velocity alerts)
 - **Analytics** — Equity curve vs SPY, win rate, Sharpe ratio, agent accuracy
-- **Settings** — Watchlist CRUD, circuit breaker thresholds, API status indicators
+- **Settings** — Watchlist CRUD, LLM provider selection, per-agent model/token/prompt config, circuit breaker thresholds, API status indicators
 
 ---
 
@@ -134,6 +134,10 @@ A dark-themed financial terminal dashboard with:
 - An Apprise-compatible notification URL (optional)
 
 > **Reddit API note:** The Reddit application process can be slow and occasionally opaque. You'll need to create a script-type app at [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps) and may need an account with some post history before approval goes through. TendieBot is optional — the system runs fine without it; the retail sentiment column will just be empty.
+
+> **OpenAI-compatible provider note:** The Settings page lets you switch from Anthropic to any OpenAI-compatible endpoint (Ollama, OpenRouter, LM Studio, etc.). Structured output reliability varies by model — local models generally work but may produce occasional schema validation errors. When using an OpenAI-compatible provider, ensure your chosen model reliably supports structured JSON output.
+
+> **Explorer mode note:** The EXPLORE mode on the Discovery page uses Anthropic tool calling directly. It will continue using Anthropic even if you switch the main pipeline to an OpenAI-compatible provider. Ensure your Anthropic API key is always set if you plan to use Explore mode. The model running Explorer must support tool use — most open-weight local models do not.
 
 ### Setup
 

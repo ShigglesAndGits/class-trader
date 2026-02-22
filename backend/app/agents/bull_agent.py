@@ -44,6 +44,5 @@ class BullAgent(BaseAgent):
         result = await self._call(
             response_model=TickerAnalyses,
             user_content=user_content,
-            max_tokens=4096,
         )
         return result.analyses

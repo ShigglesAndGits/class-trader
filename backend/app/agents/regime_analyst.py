@@ -20,5 +20,4 @@ class RegimeAnalyst(BaseAgent):
         return await self._call(
             response_model=RegimeAssessment,
             user_content=user_content,
-            max_tokens=1024,
         )

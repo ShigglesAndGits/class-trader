@@ -130,6 +130,27 @@ export interface WatchlistEntry {
   added_at: string
 }
 
+// ── LLM config ───────────────────────────────────────────────────────────────
+
+export type LLMProvider = 'anthropic' | 'openai'
+
+export interface LLMProviderConfig {
+  provider: LLMProvider
+  openai_base_url: string | null
+  has_api_key: boolean
+}
+
+export interface AgentLLMConfig {
+  agent_type: string
+  label: string
+  model: string
+  max_tokens: number
+  has_custom_prompt: boolean
+  effective_prompt: string
+  default_prompt: string
+  updated_at: string | null
+}
+
 // ── Discovery ────────────────────────────────────────────────────────────────
 
 export type DiscoveryAction = 'BUY' | 'CONSIDER' | 'AVOID'

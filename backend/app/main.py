@@ -42,6 +42,18 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Class Trader backend...")
     await init_db()
     logger.info("Database initialized.")
+
+    # Seed LLM config defaults (idempotent — skips existing rows)
+    from app.agents.agent_config_seeder import seed_agent_configs
+    await seed_agent_configs()
+
+    # Populate runtime cache from DB so agents can read config immediately
+    from app.database import AsyncSessionLocal
+    from app.runtime_config import seed_runtime_from_db
+    async with AsyncSessionLocal() as db:
+        await seed_runtime_from_db(db)
+    logger.info("LLM agent configs loaded into runtime cache.")
+
     start_scheduler()
     yield
     logger.info("Shutting down...")

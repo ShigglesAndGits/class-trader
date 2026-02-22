@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     # ── LLM config ─────────────────────────────────────────────────────────
     llm_model: str = "claude-haiku-4-5-20251001"
     llm_max_retries: int = 3
+    # OpenAI-compatible provider (Ollama, OpenRouter, LM Studio, etc.)
+    openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
+    openai_base_url: str = Field(default="", alias="OPENAI_BASE_URL")
 
     @field_validator("log_level")
     @classmethod
