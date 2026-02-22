@@ -2,7 +2,7 @@
 
 An LLM-driven autonomous trading platform. Built with one hand, nose firmly held with the other.
 
-This is a $100 experiment in pragmatic capitalism: a multi-agent AI pipeline that analyzes markets, debates itself, and executes trades via Alpaca — all running locally on your own hardware. It exists not out of enthusiasm for financial markets, but because the times seem to call for it.
+A multi-agent AI pipeline that analyzes markets, debates itself, and executes trades via Alpaca — all running locally on your own hardware. It exists not out of enthusiasm for financial markets, but because the times seem to call for it.
 
 Open-sourced because LLMs are trained on open-source code, and closed-source LLM-assisted development is, in this author's view, theft from the commons.
 
@@ -24,22 +24,24 @@ All agent reasoning is logged in full. Every decision is explainable. Nothing ex
 
 ### Two Sleeves
 
-| Sleeve | Allocation | Max Position | Max Positions |
-|--------|-----------|--------------|---------------|
-| Main | $75 | 30% of sleeve | 8 |
-| Penny | $25 | $8 | 5 |
+| Sleeve | Max Position | Max Positions | Min Confidence |
+|--------|-------------|---------------|----------------|
+| Main   | 30% of sleeve equity | 8 | 0.65 |
+| Penny  | Configurable per-trade cap | 5 | 0.60 |
+
+Sleeve allocations are set in `.env` and can be whatever you want.
 
 ### Schedule
 
 | Time (ET) | Action |
 |-----------|--------|
-| 9:35 AM Mon-Fri | Morning rebalance (full pipeline) |
-| 12:00 PM Mon-Fri | Noon review (full pipeline) |
-| Every 15 min | News monitor — triggers pipeline if sentiment score > 0.8 |
-| Every 30 min | TendieBot Reddit crawl |
-| 4:10 PM | Portfolio snapshot |
-| 4:15 PM | Daily summary notification |
-| Sat 2:00 AM | Wash sale cleanup, weekly report |
+| 9:35 AM Mon–Fri | Morning rebalance (full pipeline) |
+| 12:00 PM Mon–Fri | Noon review (full pipeline) |
+| Every 15 min (market hours) | News monitor — triggers pipeline if sentiment score > ±0.8 |
+| Every 30 min (market hours) | TendieBot Reddit crawl — alerts if mention velocity ≥ 5× baseline |
+| 4:10 PM Mon–Fri | Portfolio equity snapshot |
+| 4:15 PM Mon–Fri | Daily summary notification |
+| Sat 2:00 AM | Wash sale cleanup, weekly performance report |
 
 ---
 
@@ -86,9 +88,11 @@ All agent reasoning is logged in full. Every decision is explainable. Nothing ex
 | Frontend | React 18 (Vite), TailwindCSS, Recharts, TanStack Query |
 | Database | PostgreSQL 16 |
 | LLM | Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) via Anthropic API |
+| Discovery | Claude Sonnet 4.6 (`claude-sonnet-4-6`) for the Explorer agent |
 | Structured output | Pydantic v2 + Instructor |
 | Broker | Alpaca Markets (alpaca-py SDK) |
 | Containerization | Docker Compose |
+| Migrations | Alembic |
 
 ---
 
@@ -99,8 +103,9 @@ Hard limits enforced in Python, not in LLM prompts. The agents cannot override t
 - Minimum confidence gates (0.65 main / 0.60 penny) before any execution
 - Daily loss circuit breakers (5% main / 15% penny) — halts trading automatically
 - Consecutive loss pause after 3 losses in a row
-- Wash sale tracking with December hard-block and adjusted cost basis
-- Auto-approve constraints: new tickers, large positions, and borderline-confidence trades always require manual approval even when auto-approve is enabled
+- Single-position cap at 30% of sleeve equity
+- Wash sale tracking with December hard-block and adjusted cost basis reporting
+- Auto-approve constraints: new tickers, large positions, and borderline-confidence trades always require manual approval even when auto-approve is on
 
 ---
 
@@ -108,13 +113,14 @@ Hard limits enforced in Python, not in LLM prompts. The agents cannot override t
 
 A dark-themed financial terminal dashboard with:
 
-- **Dashboard** — Portfolio value, regime badge, positions, recent decisions, next-run countdown
+- **Dashboard** — Portfolio value (live from Alpaca), regime badge, open positions, recent decisions, next-run countdown, auto-approve toggle
+- **Discovery** — Research stocks outside the main pipeline: enter tickers or a theme, or let the Explorer agent (Sonnet) search autonomously. Streams each agent's case in real time. Supports follow-up chat and re-debate with counter-arguments. Can push recommendations to the approval queue or watchlist.
 - **Agent Activity** — Full pipeline timeline with expandable reasoning chains per agent
 - **Portfolio** — Holdings by sleeve, allocation chart, trade history with fill details
 - **Approval Queue** — Pending trades with one-tap approve/reject and bulk actions
 - **News & Sentiment** — Finnhub feed + TendieBot retail sentiment panel (WSB hype scores, velocity alerts)
 - **Analytics** — Equity curve vs SPY, win rate, Sharpe ratio, agent accuracy
-- **Settings** — Watchlist CRUD, circuit breaker management, API status indicators
+- **Settings** — Watchlist CRUD, circuit breaker thresholds, API status indicators
 
 ---
 
@@ -123,9 +129,11 @@ A dark-themed financial terminal dashboard with:
 ### Prerequisites
 
 - Docker and Docker Compose
-- API keys for: Anthropic, Alpaca (paper trading to start), Finnhub, Alpha Vantage, FMP
-- Reddit API credentials (optional, for TendieBot retail sentiment)
+- API keys for: **Anthropic**, **Alpaca** (paper trading to start), **Finnhub**, **Alpha Vantage**, **FMP**
+- Reddit API credentials (optional, for TendieBot retail sentiment — see note below)
 - An Apprise-compatible notification URL (optional)
+
+> **Reddit API note:** The Reddit application process can be slow and occasionally opaque. You'll need to create a script-type app at [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps) and may need an account with some post history before approval goes through. TendieBot is optional — the system runs fine without it; the retail sentiment column will just be empty.
 
 ### Setup
 
@@ -180,8 +188,13 @@ Key settings:
 | `AUTO_APPROVE` | `false` | Auto-execute approved trades without manual review. |
 | `MAIN_SLEEVE_ALLOCATION` | `75.0` | USD allocated to the main (large-cap) sleeve. |
 | `PENNY_SLEEVE_ALLOCATION` | `25.0` | USD allocated to the penny stock sleeve. |
+| `MAX_POSITION_PCT_MAIN` | `30.0` | Max single position as % of main sleeve equity. |
+| `MAX_POSITION_DOLLARS_PENNY` | `8.0` | Max single position size in the penny sleeve (USD). |
 | `MIN_CONFIDENCE_MAIN` | `0.65` | Minimum agent confidence to execute a main sleeve trade. |
+| `MIN_CONFIDENCE_PENNY` | `0.60` | Minimum agent confidence to execute a penny sleeve trade. |
 | `DAILY_LOSS_LIMIT_MAIN_PCT` | `5.0` | Daily loss % that triggers a circuit breaker on the main sleeve. |
+| `DAILY_LOSS_LIMIT_PENNY_PCT` | `15.0` | Daily loss % that triggers a circuit breaker on the penny sleeve. |
+| `CONSECUTIVE_LOSS_PAUSE` | `3` | Number of consecutive losses before trading pauses for review. |
 | `APPRISE_URLS` | *(empty)* | Comma-separated Apprise notification URLs. |
 
 ---
@@ -209,7 +222,7 @@ The frontend runs at `localhost:3000`.
 
 See [STATUS.md](STATUS.md) for a detailed breakdown of what's implemented.
 
-**Phases 1–5 are complete.** The system is fully built and ready for paper trading burn-in once API keys are configured.
+The system is fully built and running on paper trading. Discovery mode, live Alpaca portfolio data, and the Explorer agent (autonomous candidate research via tool calling) have been added beyond the original scope.
 
 ---
 
