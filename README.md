@@ -1,5 +1,7 @@
 # Class Trader
 
+## Disclaimer: I have no idea what I am doing, this app has not been reviewed for security, I don't recommend using it, it is a bad idea. It is public in case it is useful to somebody. I have no experience with algorithmic trading, no experience with computer security in a development context, and I don't understand the code here. You probably just shouldn't touch it. 
+
 An LLM-driven autonomous trading platform. Built with one hand, nose firmly held with the other.
 
 A multi-agent AI pipeline that analyzes markets, debates itself, and executes trades via Alpaca — all running locally on your own hardware. It exists not out of enthusiasm for financial markets, but because the times seem to call for it.
